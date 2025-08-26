@@ -6837,6 +6837,9 @@ function setupWorkflowEventListeners() {
     const loadStructuresBtn = document.getElementById('loadSelectedStructures');
     const autoDetectionBtn = document.getElementById('runAutoDetection');
     const generateBtn = document.getElementById('generateWorkflowMapping');
+    const mappingNameInput = document.getElementById('workflowMappingName');
+    const indexNameInput = document.getElementById('workflowIndexName');
+    const elasticEnvSelect = document.getElementById('workflowElasticEnvironment');
 
     if (envSelect) {
         envSelect.addEventListener('change', function() {
@@ -6859,6 +6862,16 @@ function setupWorkflowEventListeners() {
 
     if (generateBtn) {
         generateBtn.addEventListener('click', generateWorkflowMapping);
+    }
+
+    if (mappingNameInput) {
+        mappingNameInput.addEventListener('input', updateGenerateWorkflowButton);
+    }
+    if (indexNameInput) {
+        indexNameInput.addEventListener('input', updateGenerateWorkflowButton);
+    }
+    if (elasticEnvSelect) {
+        elasticEnvSelect.addEventListener('change', updateGenerateWorkflowButton);
     }
 }
 
@@ -8400,6 +8413,16 @@ function getFieldType(column) {
         'unknown';
 }
 
+function updateGenerateWorkflowButton() {
+    const mappingName = document.getElementById('workflowMappingName')?.value.trim();
+    const indexName = document.getElementById('workflowIndexName')?.value.trim();
+    const envId = document.getElementById('workflowElasticEnvironment')?.value;
+    const btn = document.getElementById('generateWorkflowMapping');
+    if (btn) {
+        btn.disabled = !(mappingName && indexName && envId);
+    }
+}
+
 function enableStep6() {
     console.log("🚀 Enabling Step 6: Generate & Save");
 
@@ -8409,11 +8432,11 @@ function enableStep6() {
     // Populate mapping summary
     populateMappingSummary();
 
-    // Enable the generate button
+    // Enable the generate button based on field completion
     const generateBtn = document.getElementById('generateWorkflowMapping');
     if (generateBtn) {
-        generateBtn.disabled = false;
-        console.log("✅ Generate button enabled");
+        updateGenerateWorkflowButton();
+        console.log("✅ Generate button state updated");
     }
 
     // Auto-populate field names if empty
