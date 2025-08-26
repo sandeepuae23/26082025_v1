@@ -622,7 +622,7 @@ function createEnvironmentCard(env, type) {
 }
 
 function updateEnvironmentDropdowns() {
-    const dropdowns = ['indicesEnvironment', 'mappingEnvironment'];
+    const dropdowns = ['indicesEnvironment', 'mappingEnvironment', 'workflowElasticEnvironment'];
     dropdowns.forEach(id => {
         const select = document.getElementById(id);
         if (select) {
@@ -630,7 +630,7 @@ function updateEnvironmentDropdowns() {
 
             // Add Oracle environments
             if (environments.oracle && environments.oracle.length > 0) {
-                if (id !== 'indicesEnvironment' && environments.oracle && environments.oracle.length > 0) {
+                if (id !== 'indicesEnvironment' && id !== 'workflowElasticEnvironment') {
                     const oracleGroup = document.createElement('optgroup');
                     oracleGroup.label = 'Oracle Environments';
                     environments.oracle.forEach(env => {
@@ -649,8 +649,7 @@ function updateEnvironmentDropdowns() {
                 elasticsearchGroup.label = 'Elasticsearch Environments';
                 environments.elasticsearch.forEach(env => {
                     const option = document.createElement('option');
-                    option.value = `elasticsearch-${env.id}`;
-                    if (id === 'indicesEnvironment') {
+                    if (id === 'indicesEnvironment' || id === 'workflowElasticEnvironment') {
                         option.value = env.id;
                     } else {
                         option.value = `elasticsearch-${env.id}`;
@@ -7710,9 +7709,10 @@ function generateRelationshipFieldMappingFixed(relationship, relIndex) {
 async function generateWorkflowMapping() {
     const mappingName = document.getElementById('workflowMappingName').value.trim();
     const indexName = document.getElementById('workflowIndexName').value.trim();
+    const elasticEnvId = document.getElementById('workflowElasticEnvironment').value;
 
-    if (!mappingName || !indexName) {
-        showAlert('Please enter mapping name and index name', 'warning');
+    if (!mappingName || !indexName || !elasticEnvId) {
+        showAlert('Please enter mapping name, index name, and select an Elasticsearch environment', 'warning');
         return;
     }
 
@@ -7734,11 +7734,10 @@ async function generateWorkflowMapping() {
             indexName: indexName,
             tables: workflowData.selectedTables,
             relationships: workflowData.relationships,
-            tableStructures: workflowData.tableStructures,
-            environment_id: workflowData.selectedEnvironment
+            tableStructures: workflowData.tableStructures
         };
 
-        const response = await fetch(`/oracle/generate-workflow-mapping/${workflowData.selectedEnvironment}`, {
+        const response = await fetch(`/oracle/generate-workflow-mapping/${elasticEnvId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
