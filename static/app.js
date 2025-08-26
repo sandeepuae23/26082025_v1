@@ -421,8 +421,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add Nested Field Modal Event Listeners
     const enhancedTab = document.getElementById('enhanced-indices-tab');
     if (enhancedTab) {
-        enhancedTab.addEventListener('shown.bs.tab', function() {
-            // Ensure the Enhanced Indices Manager is properly initialized
+        enhancedTab.addEventListener('shown.bs.tab', function () {
+            // Lazy‑load the Enhanced Indices Manager when the tab is first viewed
+            if (!window.enhancedIndicesManager && window.EnhancedIndicesManager) {
+                window.enhancedIndicesManager = new window.EnhancedIndicesManager();
+            }
+
             if (window.enhancedIndicesManager) {
                 window.enhancedIndicesManager.refreshAllData();
             }
