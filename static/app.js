@@ -8210,7 +8210,7 @@ function generateOracleFieldsHTML(fields) {
         return '<p class="text-muted">No fields available</p>';
     }
 
-    return fields.slice(0, 10).map(field => {
+    return fields.map(field => {
         const fieldName = field.name || field.column_name || field.COLUMN_NAME || 'Unknown';
         const fieldType = field.type || field.data_type || field.DATA_TYPE || 'Unknown';
 
@@ -8220,27 +8220,7 @@ function generateOracleFieldsHTML(fields) {
                 <br><small class="text-muted">${fieldType}</small>
             </div>
         `;
-    }).join('') + (fields.length > 10 ? `<small class="text-muted">... and ${fields.length - 10} more fields</small>` : '');
-}
-
-// 🆕 Generate Elasticsearch fields HTML
-function generateElasticsearchFieldsHTML(fields) {
-    if (!fields || fields.length === 0) {
-        return '<p class="text-muted">No fields available</p>';
-    }
-
-    return fields.slice(0, 10).map(field => {
-        const fieldName = field.name || field.column_name || field.COLUMN_NAME || 'Unknown';
-        const oracleType = field.type || field.data_type || field.DATA_TYPE || 'Unknown';
-        const elasticType = oracleToElasticType(oracleType);
-
-        return `
-            <div class="elastic-field mb-2">
-                <strong>${fieldName.toLowerCase()}</strong>
-                <br><small class="text-muted">${elasticType}</small>
-            </div>
-        `;
-    }).join('') + (fields.length > 10 ? `<small class="text-muted">... and ${fields.length - 10} more fields</small>` : '');
+    }).join('');
 }
 
 // 🔧 FIXED removeRelationship function
@@ -8273,12 +8253,12 @@ function generateJoinFieldMapping(relationship, parentFields, childFields) {
                 <div class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
                     <div class="mb-3">
                         <strong class="text-primary">${relationship.parentTable} (Parent):</strong>
-                        ${generateOracleFieldsHTML(parentFields.slice(0, 5))}
+                        ${generateOracleFieldsHTML(parentFields)}
                     </div>
                     <hr>
                     <div>
                         <strong class="text-warning">${relationship.childTable} (Child):</strong>
-                        ${generateOracleFieldsHTML(childFields.slice(0, 5))}
+                        ${generateOracleFieldsHTML(childFields)}
                     </div>
                 </div>
             </div>
@@ -8295,11 +8275,11 @@ function generateJoinFieldMapping(relationship, parentFields, childFields) {
                     <hr class="my-2">
                     <div class="mb-2">
                         <strong class="text-primary">Parent fields:</strong>
-                        ${generateElasticsearchFieldsHTML(parentFields.slice(0, 3))}
+                        ${generateElasticsearchFieldsHTML(parentFields)}
                     </div>
                     <div>
                         <strong class="text-warning">Child fields:</strong>
-                        ${generateElasticsearchFieldsHTML(childFields.slice(0, 3))}
+                        ${generateElasticsearchFieldsHTML(childFields)}
                     </div>
                 </div>
             </div>
@@ -8422,7 +8402,7 @@ function generateElasticsearchFieldsHTML(fields) {
         return '<p class="text-muted">No fields available</p>';
     }
 
-    return fields.slice(0, 10).map(field => {
+    return fields.map(field => {
         const fieldName = getFieldName(field);
         const oracleType = getFieldType(field);
         const elasticType = oracleToElasticType(oracleType);
@@ -8441,7 +8421,7 @@ function generateElasticsearchFieldsHTML(fields) {
                 </small>
             </div>
         `;
-    }).join('') + (fields.length > 10 ? `<small class="text-muted">... and ${fields.length - 10} more fields</small>` : '');
+    }).join('');
 }
 
 // 🆕 Get color for Elasticsearch data types
