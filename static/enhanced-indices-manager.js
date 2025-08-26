@@ -2351,7 +2351,7 @@ async function applyEnhancedSettingsChanges() {
     }
 }
 
-// Export functions for global access
+// Export functions for global access and expose the manager class
 if (typeof window !== 'undefined') {
     window.editEnhancedMappingSettings = editEnhancedMappingSettings;
     window.showEnhancedSettingsCategory = showEnhancedSettingsCategory;
@@ -2359,7 +2359,6 @@ if (typeof window !== 'undefined') {
     window.resetEnhancedSettings = resetEnhancedSettings;
     window.previewEnhancedSettingsChanges = previewEnhancedSettingsChanges;
     window.applyEnhancedSettingsChanges = applyEnhancedSettingsChanges;
+    // Expose the manager class for lazy initialization
+    window.EnhancedIndicesManager = EnhancedIndicesManager;
 }
-
-// Initialize the Enhanced Indices Manager
-window.enhancedIndicesManager = new EnhancedIndicesManager();

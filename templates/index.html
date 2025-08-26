@@ -1806,19 +1806,24 @@
 
                     <div class="card mt-3" id="mappingPreview">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h6><i class="fas fa-eye me-2"></i>Mapping Preview</h6>
-                            <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="copyPreviewBtn">
-                                    <i class="fas fa-copy me-1"></i>Copy
-                                </button>
-                                <button type="button" class="btn btn-outline-primary btn-sm" id="downloadPreviewBtn">
-                                    <i class="fas fa-download me-1"></i>Download
+                            <h6 class="mb-0"><i class="fas fa-eye me-2"></i>Mapping Preview</h6>
+                            <div class="d-flex align-items-center">
+                                <div class="btn-group me-2" role="group">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="copyPreviewBtn">
+                                        <i class="fas fa-copy me-1"></i>Copy
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="downloadPreviewBtn">
+                                        <i class="fas fa-download me-1"></i>Download
+                                    </button>
+                                </div>
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#mappingPreviewBody" aria-expanded="false" aria-controls="mappingPreviewBody">
+                                    <i class="fas fa-chevron-down preview-toggle-icon"></i>
                                 </button>
                             </div>
                         </div>
-                        <!-- Preview View Tabs -->
-                        <div class="card-body">
-                            <ul class="nav nav-tabs mb-3" id="previewTabs" role="tablist">
+                        <div id="mappingPreviewBody" class="collapse">
+                            <div class="card-body">
+                                <ul class="nav nav-tabs mb-3" id="previewTabs" role="tablist">
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link active" id="json-preview-tab" data-bs-toggle="tab" data-bs-target="#json-preview" type="button" role="tab">
                                         <i class="fas fa-code me-2"></i>JSON View
@@ -2943,20 +2948,22 @@
                                 <input type="text" class="form-control" id="workflowIndexName"
                                        placeholder="Enter index name">
                             </div>
-                            <button id="generateWorkflowMapping" class="btn btn-success w-100" disabled>
-                                <i class="fas fa-magic me-2"></i>Generate & Save Mapping
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h6><i class="fas fa-eye me-2"></i>Preview</h6>
-                        </div>
-                        <div class="card-body">
-                            <div id="workflowMappingPreview" style="max-height: 300px; overflow-y: auto;">
-                                <pre class="small text-muted">Generate mapping to see preview...</pre>
+                            <div class="mb-3">
+                                <label for="workflowElasticEnvironment" class="form-label">Elasticsearch Environment</label>
+                                <select id="workflowElasticEnvironment" class="form-select">
+                                    <option value="">Select environment...</option>
+                                </select>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button id="generateWorkflowMappingBtn" class="btn btn-primary" disabled>
+                                    <i class="fas fa-magic me-2"></i>Generate Mapping
+                                </button>
+                                <button id="saveWorkflowMappingBtn" class="btn btn-success" disabled>
+                                    <i class="fas fa-save me-2"></i>Save Mapping
+                                </button>
+                                <button id="previewWorkflowMappingBtn" class="btn btn-secondary" disabled>
+                                    <i class="fas fa-eye me-2"></i>Mapping Preview
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -2965,6 +2972,21 @@
         </div>
     </div>
 </div>
+</div>
+
+<!-- Mapping Preview Modal -->
+<div class="modal fade" id="workflowPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-eye me-2"></i>Mapping Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="workflowPreviewContent" class="small text-muted">No mapping generated.</pre>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Enhanced Field Configuration Modal with Nested Field Support -->

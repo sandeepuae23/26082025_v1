@@ -3931,8 +3931,12 @@ def remove_duplicate_relationships(relationships: List[Dict[str, Any]]) -> List[
 
 
 @app.post("/oracle/generate-workflow-mapping/{env_id}")
-async def generate_workflow_mapping(env_id: int, request: Request):
-    """Generate mapping for multiple tables with relationships"""
+async def generate_workflow_mapping(env_id: int, request: Request, dry_run: bool = False):
+    """Generate mapping for multiple tables with relationships.
+
+    If ``dry_run`` is true, the mapping is returned without saving or creating
+    the Elasticsearch index, allowing clients to preview the result.
+    """
     try:
         # Parse request data
         data = await request.json()
@@ -3961,22 +3965,29 @@ async def generate_workflow_mapping(env_id: int, request: Request):
             raise ValueError(f"Mapping with name '{mapping_name}' already exists")
 
         # Generate Elasticsearch mapping
-        print(tables)
-        print(relationships)
-        print(table_structures)
         elasticsearch_mapping = generate_elasticsearch_mapping_v1(
             tables, relationships, table_structures
         )
 
-        logger.info(f"📝 Generated mapping with {count_mapping_fields(elasticsearch_mapping)} fields")
+        total_fields = count_mapping_fields(elasticsearch_mapping)
+        logger.info(f"📝 Generated mapping with {total_fields} fields")
+
+        if dry_run:
+            return {
+                "success": True,
+                "mappingName": mapping_name,
+                "indexName": index_name,
+                "mapping": elasticsearch_mapping,
+                "totalFields": total_fields,
+                "status": "preview",
+            }
+
         environments = get_elasticsearch_environments()
         env = next((e for e in environments if e['id'] == env_id), None)
 
         # Create index in Elasticsearch
         es_success = False
         es_error = None
-        print(elasticsearch_mapping)
-        print(index_name)
 
         try:
             es_success = create_elasticsearch_index_v2(env['host_url'], index_name, elasticsearch_mapping, env.get('username'), env.get('password'))
@@ -3998,8 +4009,6 @@ async def generate_workflow_mapping(env_id: int, request: Request):
         )
 
         # Prepare response
-        total_fields = count_mapping_fields(elasticsearch_mapping)
-
         response_data = {
             "success": True,
             "mappingId": mapping_id,

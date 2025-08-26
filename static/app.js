@@ -35,6 +35,8 @@ let workflowData = {
     fieldMappings: {},
     detectionResults: null
 };
+let workflowInitialized = false;
+let workflowGeneratedMapping = null;
 // Oracle-specific global variables
 let queryOracleEnvironmentId = null;
 let queryTables = [];
@@ -44,7 +46,6 @@ let mappingTables = [];
 let selectedOracleTable = null;
 let oracleTableColumns = [];
 let selectedOracleColumns = [];
-let envId=null;
 // Field configuration with nested field support
 let currentConfigField = null;
 let enhancedFormBuilderData = {
@@ -309,6 +310,19 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshCustomAnalyzerList();
     populateAnalyzerDropdown();
     populateSimilarityDropdown();
+    if (document.getElementById('workflowElasticEnvironment')) {
+        initializeWorkflow();
+    }
+
+    const mainPreviewCollapse = document.getElementById('mappingPreviewBody');
+    if (mainPreviewCollapse) {
+        mainPreviewCollapse.addEventListener('show.bs.collapse', () => {
+            document.querySelector('#mappingPreview .preview-toggle-icon').classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+        mainPreviewCollapse.addEventListener('hide.bs.collapse', () => {
+            document.querySelector('#mappingPreview .preview-toggle-icon').classList.replace('fa-chevron-up', 'fa-chevron-down');
+        });
+    }
     // initializeNestedFieldDragDrop();
     // Enhanced field type change handler
     const elasticTypeSelect = document.getElementById('elasticType');
@@ -405,10 +419,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Add Nested Field Modal Event Listeners
+    // Ensure the Settings & Indices Manager is ready when the page loads
+    if (window.EnhancedIndicesManager && !window.enhancedIndicesManager) {
+        window.enhancedIndicesManager = new window.EnhancedIndicesManager();
+    }
+
     const enhancedTab = document.getElementById('enhanced-indices-tab');
     if (enhancedTab) {
-        enhancedTab.addEventListener('shown.bs.tab', function() {
-            // Ensure the Enhanced Indices Manager is properly initialized
+        enhancedTab.addEventListener('shown.bs.tab', function () {
             if (window.enhancedIndicesManager) {
                 window.enhancedIndicesManager.refreshAllData();
             }
@@ -622,7 +640,7 @@ function createEnvironmentCard(env, type) {
 }
 
 function updateEnvironmentDropdowns() {
-    const dropdowns = ['indicesEnvironment', 'mappingEnvironment'];
+    const dropdowns = ['indicesEnvironment', 'mappingEnvironment', 'workflowElasticEnvironment'];
     dropdowns.forEach(id => {
         const select = document.getElementById(id);
         if (select) {
@@ -630,7 +648,7 @@ function updateEnvironmentDropdowns() {
 
             // Add Oracle environments
             if (environments.oracle && environments.oracle.length > 0) {
-                if (id !== 'indicesEnvironment' && environments.oracle && environments.oracle.length > 0) {
+                if (id !== 'indicesEnvironment' && id !== 'workflowElasticEnvironment') {
                     const oracleGroup = document.createElement('optgroup');
                     oracleGroup.label = 'Oracle Environments';
                     environments.oracle.forEach(env => {
@@ -649,8 +667,7 @@ function updateEnvironmentDropdowns() {
                 elasticsearchGroup.label = 'Elasticsearch Environments';
                 environments.elasticsearch.forEach(env => {
                     const option = document.createElement('option');
-                    option.value = `elasticsearch-${env.id}`;
-                    if (id === 'indicesEnvironment') {
+                    if (id === 'indicesEnvironment' || id === 'workflowElasticEnvironment') {
                         option.value = env.id;
                     } else {
                         option.value = `elasticsearch-${env.id}`;
@@ -6796,9 +6813,35 @@ async function validateMappingModal() {
 
 
 function initializeWorkflow() {
+    if (!workflowInitialized) {
+        setupWorkflowEventListeners();
+        workflowInitialized = true;
+    }
     loadOracleEnvironmentsForWorkflow();
-    setupWorkflowEventListeners();
+    loadElasticEnvironmentsForWorkflow();
     updateStepVisibility();
+}
+
+async function loadElasticEnvironmentsForWorkflow() {
+    try {
+        const response = await fetch('/environments');
+        const envs = await response.json();
+
+        const select = document.getElementById('workflowElasticEnvironment');
+        select.innerHTML = '<option value="">Select environment...</option>';
+
+        if (envs.elasticsearch && envs.elasticsearch.length > 0) {
+            envs.elasticsearch.forEach(env => {
+                const option = document.createElement('option');
+                option.value = env.id;
+                option.textContent = `${env.name} (${env.host_url})`;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading Elasticsearch environments:', error);
+        showAlert('Error loading Elasticsearch environments: ' + error.message, 'danger');
+    }
 }
 
 
@@ -6807,7 +6850,12 @@ function setupWorkflowEventListeners() {
     const connectBtn = document.getElementById('connectWorkflowOracle');
     const loadStructuresBtn = document.getElementById('loadSelectedStructures');
     const autoDetectionBtn = document.getElementById('runAutoDetection');
-    const generateBtn = document.getElementById('generateWorkflowMapping');
+    const generateBtn = document.getElementById('generateWorkflowMappingBtn');
+    const saveBtn = document.getElementById('saveWorkflowMappingBtn');
+    const previewBtn = document.getElementById('previewWorkflowMappingBtn');
+    const mappingNameInput = document.getElementById('workflowMappingName');
+    const indexNameInput = document.getElementById('workflowIndexName');
+    const elasticEnvSelect = document.getElementById('workflowElasticEnvironment');
 
     if (envSelect) {
         envSelect.addEventListener('change', function() {
@@ -6829,7 +6877,32 @@ function setupWorkflowEventListeners() {
     }
 
     if (generateBtn) {
-        generateBtn.addEventListener('click', generateWorkflowMapping);
+        generateBtn.addEventListener('click', () => generateWorkflowMapping(false));
+    }
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => generateWorkflowMapping(true));
+    }
+    if (previewBtn) {
+        previewBtn.addEventListener('click', showWorkflowMappingPreview);
+    }
+
+    if (mappingNameInput) {
+        mappingNameInput.addEventListener('input', () => {
+            workflowGeneratedMapping = null;
+            updateGenerateWorkflowButton();
+        });
+    }
+    if (indexNameInput) {
+        indexNameInput.addEventListener('input', () => {
+            workflowGeneratedMapping = null;
+            updateGenerateWorkflowButton();
+        });
+    }
+    if (elasticEnvSelect) {
+        elasticEnvSelect.addEventListener('change', () => {
+            workflowGeneratedMapping = null;
+            updateGenerateWorkflowButton();
+        });
     }
 }
 
@@ -7086,9 +7159,9 @@ function displayTableStructure(tableName, columns, container) {
                 <span class="badge bg-light text-dark ms-2">${columns.length} columns</span>
             </h6>
         </div>
-        <div class="card-body">
+        <div class="card-body" style="max-height: 300px; overflow-y: auto;">
             <div class="row">
-                ${columns.slice(0, 6).map(col => `
+                ${columns.map(col => `
                     <div class="col-md-4 mb-2">
                         <div class="oracle-field">
                             <strong>${col.name || col.column_name}</strong>
@@ -7096,11 +7169,6 @@ function displayTableStructure(tableName, columns, container) {
                         </div>
                     </div>
                 `).join('')}
-                ${columns.length > 6 ? `
-                    <div class="col-12">
-                        <small class="text-muted">... and ${columns.length - 6} more columns</small>
-                    </div>
-                ` : ''}
             </div>
         </div>
     `;
@@ -7462,7 +7530,7 @@ function generateFieldMappings() {
         const mappingCard = document.createElement('div');
         mappingCard.className = 'card mb-3';
         mappingCard.innerHTML = `
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#fieldMappingBody_${relIndex}" style="cursor: pointer;">
                 <h6 class="mb-0">
                     <i class="fas fa-arrows-alt-h me-2"></i>
                     ${rel.parentTable} → ${rel.childTable} Field Mapping
@@ -7470,19 +7538,31 @@ function generateFieldMappings() {
                         ${rel.type}
                     </span>
                 </h6>
+                <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
-            <div class="card-body">
-                <div id="fieldMapping_${relIndex}">
-                    <div class="text-center">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+            <div id="fieldMappingBody_${relIndex}" class="collapse">
+                <div class="card-body">
+                    <div id="fieldMapping_${relIndex}">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Generating field mappings...</p>
                         </div>
-                        <p class="mt-2">Generating field mappings...</p>
                     </div>
                 </div>
             </div>
         `;
         container.appendChild(mappingCard);
+
+        const collapseEl = mappingCard.querySelector(`#fieldMappingBody_${relIndex}`);
+        const icon = mappingCard.querySelector('.toggle-icon');
+        collapseEl.addEventListener('show.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+        collapseEl.addEventListener('hide.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        });
 
         // Generate the actual mapping content
         setTimeout(() => {
@@ -7528,7 +7608,7 @@ function generateRelationshipFieldMapping(relationship, relIndex) {
     let mappingHTML = '';
 
     if (relationship.type === 'nested') {
-        mappingHTML = generateNestedFieldMapping(relationship, parentFields, childFields);
+        mappingHTML = generateNestedFieldMapping(relationship, parentFields, childFields, relIndex);
     } else if (relationship.type === 'join') {
         mappingHTML = generateJoinFieldMapping(relationship, parentFields, childFields);
     } else {
@@ -7536,10 +7616,21 @@ function generateRelationshipFieldMapping(relationship, relIndex) {
     }
 
     container.innerHTML = mappingHTML;
+
+    const previewCollapse = container.querySelector(`#generatedPreview_${relIndex}`);
+    if (previewCollapse) {
+        const icon = container.querySelector('.preview-toggle-icon');
+        previewCollapse.addEventListener('show.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+        previewCollapse.addEventListener('hide.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        });
+    }
 }
 
 // 🆕 Generate nested field mapping (parent + nested child)
-function generateNestedFieldMapping(relationship, parentFields, childFields) {
+function generateNestedFieldMapping(relationship, parentFields, childFields, relIndex) {
     return `
         <!-- Parent Table Fields -->
         <div class="row mb-4">
@@ -7619,14 +7710,17 @@ function generateNestedFieldMapping(relationship, parentFields, childFields) {
         <div class="row">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#generatedPreview_${relIndex}" style="cursor: pointer;">
                         <h6 class="mb-0">
                             <i class="fas fa-code me-2"></i>
                             Generated Elasticsearch Mapping Preview
                         </h6>
+                        <i class="fas fa-chevron-down preview-toggle-icon"></i>
                     </div>
-                    <div class="card-body">
-                        <pre class="small bg-light p-3 rounded"><code>${generateMappingPreview(relationship, parentFields, childFields)}</code></pre>
+                    <div id="generatedPreview_${relIndex}" class="collapse">
+                        <div class="card-body">
+                            <pre class="small bg-light p-3 rounded"><code>${generateMappingPreview(relationship, parentFields, childFields)}</code></pre>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -7699,20 +7793,33 @@ function generateRelationshipFieldMappingFixed(relationship, relIndex) {
     let mappingHTML = '';
 
     if (relationship.type === 'nested') {
-        mappingHTML = generateNestedFieldMapping(relationship, parentFields, childFields);
+        mappingHTML = generateNestedFieldMapping(relationship, parentFields, childFields, relIndex);
     } else {
         mappingHTML = generateSimpleFieldMapping(relationship, parentFields, childFields);
     }
 
     container.innerHTML = mappingHTML;
+
+    const previewCollapse = container.querySelector(`#generatedPreview_${relIndex}`);
+    if (previewCollapse) {
+        const icon = container.querySelector('.preview-toggle-icon');
+        previewCollapse.addEventListener('show.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+        previewCollapse.addEventListener('hide.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        });
+    }
 }
 
-async function generateWorkflowMapping() {
+async function generateWorkflowMapping(isSave = false) {
     const mappingName = document.getElementById('workflowMappingName').value.trim();
     const indexName = document.getElementById('workflowIndexName').value.trim();
+    const elasticEnvId = document.getElementById('workflowElasticEnvironment').value;
+    const buttonId = isSave ? 'saveWorkflowMappingBtn' : 'generateWorkflowMappingBtn';
 
-    if (!mappingName || !indexName) {
-        showAlert('Please enter mapping name and index name', 'warning');
+    if (!mappingName || !indexName || !elasticEnvId) {
+        showAlert('Please enter mapping name, index name, and select an Elasticsearch environment', 'warning');
         return;
     }
 
@@ -7727,18 +7834,17 @@ async function generateWorkflowMapping() {
     }
 
     try {
-        showLoading('generateWorkflowMapping');
+        showLoading(buttonId);
 
         const mappingData = {
             mappingName: mappingName,
             indexName: indexName,
             tables: workflowData.selectedTables,
             relationships: workflowData.relationships,
-            tableStructures: workflowData.tableStructures,
-            environment_id: workflowData.selectedEnvironment
+            tableStructures: workflowData.tableStructures
         };
 
-        const response = await fetch(`/oracle/generate-workflow-mapping/${workflowData.selectedEnvironment}`, {
+        const response = await fetch(`/oracle/generate-workflow-mapping/${elasticEnvId}?dry_run=${!isSave}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -7751,9 +7857,14 @@ async function generateWorkflowMapping() {
         if (result.success) {
             displayMappingSummary(result);
             updateMappingPreview(result.mapping);
-            completeStep(6);
-            showAlert('Mapping generated successfully!', 'success');
-            showWorkflowCompletion(result);
+            workflowGeneratedMapping = result.mapping;
+            if (isSave) {
+                completeStep(6);
+                showAlert('Mapping saved successfully!', 'success');
+                showWorkflowCompletion(result);
+            } else {
+                showAlert('Mapping generated successfully!', 'success');
+            }
         } else {
             throw new Error(result.error);
         }
@@ -7761,7 +7872,8 @@ async function generateWorkflowMapping() {
     } catch (error) {
         showAlert('Error generating mapping: ' + error.message, 'danger');
     } finally {
-        hideLoading('generateWorkflowMapping');
+        hideLoading(buttonId);
+        updateGenerateWorkflowButton();
     }
 }
 
@@ -7796,10 +7908,22 @@ function displayFinalMappingSummary(result) {
 
 // 🆕 NEW FUNCTION: Update mapping preview
 function updateMappingPreview(mapping) {
-    const container = document.getElementById('workflowMappingPreview');
+    const container = document.getElementById('workflowPreviewContent');
 
     if (container && mapping) {
-        container.innerHTML = `<pre class="small">${JSON.stringify(mapping, null, 2)}</pre>`;
+        container.textContent = JSON.stringify(mapping, null, 2);
+    }
+}
+
+function showWorkflowMappingPreview() {
+    if (!workflowGeneratedMapping) {
+        showAlert('Please generate the mapping first', 'warning');
+        return;
+    }
+    const modalEl = document.getElementById('workflowPreviewModal');
+    if (modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
     }
 }
 
@@ -7876,7 +8000,7 @@ function exportMapping() {
         index: document.getElementById('workflowIndexName').value,
         tables: workflowData.selectedTables,
         relationships: workflowData.relationships,
-        mapping: JSON.parse(document.getElementById('workflowMappingPreview').textContent || '{}')
+        mapping: JSON.parse(document.getElementById('workflowPreviewContent').textContent || '{}')
     };
 
     const blob = new Blob([JSON.stringify(mappingData, null, 2)], { type: 'application/json' });
@@ -8026,12 +8150,6 @@ function displayMappingSummary(result) {
         </div>
     `;
 }
-
-function updateMappingPreview(mapping) {
-    const container = document.getElementById('workflowMappingPreview');
-    container.innerHTML = `<pre class="small">${JSON.stringify(mapping, null, 2)}</pre>`;
-}
-
 // Navigation functions
 function goToStep(stepNumber) {
     // Update current step
@@ -8096,7 +8214,7 @@ function generateOracleFieldsHTML(fields) {
         return '<p class="text-muted">No fields available</p>';
     }
 
-    return fields.slice(0, 10).map(field => {
+    return fields.map(field => {
         const fieldName = field.name || field.column_name || field.COLUMN_NAME || 'Unknown';
         const fieldType = field.type || field.data_type || field.DATA_TYPE || 'Unknown';
 
@@ -8106,27 +8224,7 @@ function generateOracleFieldsHTML(fields) {
                 <br><small class="text-muted">${fieldType}</small>
             </div>
         `;
-    }).join('') + (fields.length > 10 ? `<small class="text-muted">... and ${fields.length - 10} more fields</small>` : '');
-}
-
-// 🆕 Generate Elasticsearch fields HTML
-function generateElasticsearchFieldsHTML(fields) {
-    if (!fields || fields.length === 0) {
-        return '<p class="text-muted">No fields available</p>';
-    }
-
-    return fields.slice(0, 10).map(field => {
-        const fieldName = field.name || field.column_name || field.COLUMN_NAME || 'Unknown';
-        const oracleType = field.type || field.data_type || field.DATA_TYPE || 'Unknown';
-        const elasticType = oracleToElasticType(oracleType);
-
-        return `
-            <div class="elastic-field mb-2">
-                <strong>${fieldName.toLowerCase()}</strong>
-                <br><small class="text-muted">${elasticType}</small>
-            </div>
-        `;
-    }).join('') + (fields.length > 10 ? `<small class="text-muted">... and ${fields.length - 10} more fields</small>` : '');
+    }).join('');
 }
 
 // 🔧 FIXED removeRelationship function
@@ -8159,12 +8257,12 @@ function generateJoinFieldMapping(relationship, parentFields, childFields) {
                 <div class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
                     <div class="mb-3">
                         <strong class="text-primary">${relationship.parentTable} (Parent):</strong>
-                        ${generateOracleFieldsHTML(parentFields.slice(0, 5))}
+                        ${generateOracleFieldsHTML(parentFields)}
                     </div>
                     <hr>
                     <div>
                         <strong class="text-warning">${relationship.childTable} (Child):</strong>
-                        ${generateOracleFieldsHTML(childFields.slice(0, 5))}
+                        ${generateOracleFieldsHTML(childFields)}
                     </div>
                 </div>
             </div>
@@ -8181,11 +8279,11 @@ function generateJoinFieldMapping(relationship, parentFields, childFields) {
                     <hr class="my-2">
                     <div class="mb-2">
                         <strong class="text-primary">Parent fields:</strong>
-                        ${generateElasticsearchFieldsHTML(parentFields.slice(0, 3))}
+                        ${generateElasticsearchFieldsHTML(parentFields)}
                     </div>
                     <div>
                         <strong class="text-warning">Child fields:</strong>
-                        ${generateElasticsearchFieldsHTML(childFields.slice(0, 3))}
+                        ${generateElasticsearchFieldsHTML(childFields)}
                     </div>
                 </div>
             </div>
@@ -8308,7 +8406,7 @@ function generateElasticsearchFieldsHTML(fields) {
         return '<p class="text-muted">No fields available</p>';
     }
 
-    return fields.slice(0, 10).map(field => {
+    return fields.map(field => {
         const fieldName = getFieldName(field);
         const oracleType = getFieldType(field);
         const elasticType = oracleToElasticType(oracleType);
@@ -8327,7 +8425,7 @@ function generateElasticsearchFieldsHTML(fields) {
                 </small>
             </div>
         `;
-    }).join('') + (fields.length > 10 ? `<small class="text-muted">... and ${fields.length - 10} more fields</small>` : '');
+    }).join('');
 }
 
 // 🆕 Get color for Elasticsearch data types
@@ -8371,20 +8469,44 @@ function getFieldType(column) {
         'unknown';
 }
 
-function enableStep6() {
-    console.log("🚀 Enabling Step 6: Generate & Save");
+function updateGenerateWorkflowButton() {
+    const mappingName = document.getElementById('workflowMappingName')?.value.trim();
+    const indexName = document.getElementById('workflowIndexName')?.value.trim();
+    const envId = document.getElementById('workflowElasticEnvironment')?.value;
+    const generateBtn = document.getElementById('generateWorkflowMappingBtn');
+    const saveBtn = document.getElementById('saveWorkflowMappingBtn');
+    const previewBtn = document.getElementById('previewWorkflowMappingBtn');
 
+    if (generateBtn) {
+        generateBtn.disabled = !(mappingName && indexName && envId);
+    }
+
+    const hasMapping = !!workflowGeneratedMapping;
+    if (saveBtn) {
+        saveBtn.disabled = !hasMapping;
+    }
+    if (previewBtn) {
+        previewBtn.disabled = !hasMapping;
+    }
+    if (!hasMapping) {
+        const container = document.getElementById('workflowPreviewContent');
+        if (container) {
+            container.textContent = 'No mapping generated.';
+        }
+    }
+}
+
+function enableStep6() {
     // Move to Step 6
     goToStep(6);
 
     // Populate mapping summary
     populateMappingSummary();
 
-    // Enable the generate button
-    const generateBtn = document.getElementById('generateWorkflowMapping');
+    // Enable the generate button based on field completion
+    const generateBtn = document.getElementById('generateWorkflowMappingBtn');
     if (generateBtn) {
-        generateBtn.disabled = false;
-        console.log("✅ Generate button enabled");
+        updateGenerateWorkflowButton();
     }
 
     // Auto-populate field names if empty
