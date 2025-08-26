@@ -7521,7 +7521,7 @@ function generateFieldMappings() {
         const mappingCard = document.createElement('div');
         mappingCard.className = 'card mb-3';
         mappingCard.innerHTML = `
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#fieldMappingBody_${relIndex}" style="cursor: pointer;">
                 <h6 class="mb-0">
                     <i class="fas fa-arrows-alt-h me-2"></i>
                     ${rel.parentTable} → ${rel.childTable} Field Mapping
@@ -7529,19 +7529,31 @@ function generateFieldMappings() {
                         ${rel.type}
                     </span>
                 </h6>
+                <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
-            <div class="card-body">
-                <div id="fieldMapping_${relIndex}">
-                    <div class="text-center">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+            <div id="fieldMappingBody_${relIndex}" class="collapse">
+                <div class="card-body">
+                    <div id="fieldMapping_${relIndex}">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Generating field mappings...</p>
                         </div>
-                        <p class="mt-2">Generating field mappings...</p>
                     </div>
                 </div>
             </div>
         `;
         container.appendChild(mappingCard);
+
+        const collapseEl = mappingCard.querySelector(`#fieldMappingBody_${relIndex}`);
+        const icon = mappingCard.querySelector('.toggle-icon');
+        collapseEl.addEventListener('show.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+        collapseEl.addEventListener('hide.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        });
 
         // Generate the actual mapping content
         setTimeout(() => {
