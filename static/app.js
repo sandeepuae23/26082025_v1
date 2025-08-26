@@ -6796,8 +6796,31 @@ async function validateMappingModal() {
 
 function initializeWorkflow() {
     loadOracleEnvironmentsForWorkflow();
+    loadElasticEnvironmentsForWorkflow();
     setupWorkflowEventListeners();
     updateStepVisibility();
+}
+
+async function loadElasticEnvironmentsForWorkflow() {
+    try {
+        const response = await fetch('/environments');
+        const envs = await response.json();
+
+        const select = document.getElementById('workflowElasticEnvironment');
+        select.innerHTML = '<option value="">Select environment...</option>';
+
+        if (envs.elasticsearch && envs.elasticsearch.length > 0) {
+            envs.elasticsearch.forEach(env => {
+                const option = document.createElement('option');
+                option.value = env.id;
+                option.textContent = `${env.name} (${env.host_url})`;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading Elasticsearch environments:', error);
+        showAlert('Error loading Elasticsearch environments: ' + error.message, 'danger');
+    }
 }
 
 
