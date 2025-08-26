@@ -7145,9 +7145,9 @@ function displayTableStructure(tableName, columns, container) {
                 <span class="badge bg-light text-dark ms-2">${columns.length} columns</span>
             </h6>
         </div>
-        <div class="card-body">
+        <div class="card-body" style="max-height: 300px; overflow-y: auto;">
             <div class="row">
-                ${columns.slice(0, 6).map(col => `
+                ${columns.map(col => `
                     <div class="col-md-4 mb-2">
                         <div class="oracle-field">
                             <strong>${col.name || col.column_name}</strong>
@@ -7155,11 +7155,6 @@ function displayTableStructure(tableName, columns, container) {
                         </div>
                     </div>
                 `).join('')}
-                ${columns.length > 6 ? `
-                    <div class="col-12">
-                        <small class="text-muted">... and ${columns.length - 6} more columns</small>
-                    </div>
-                ` : ''}
             </div>
         </div>
     `;
