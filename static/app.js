@@ -313,6 +313,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('workflowElasticEnvironment')) {
         initializeWorkflow();
     }
+
+    const mainPreviewCollapse = document.getElementById('mappingPreviewBody');
+    if (mainPreviewCollapse) {
+        mainPreviewCollapse.addEventListener('show.bs.collapse', () => {
+            document.querySelector('#mappingPreview .preview-toggle-icon').classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+        mainPreviewCollapse.addEventListener('hide.bs.collapse', () => {
+            document.querySelector('#mappingPreview .preview-toggle-icon').classList.replace('fa-chevron-up', 'fa-chevron-down');
+        });
+    }
     // initializeNestedFieldDragDrop();
     // Enhanced field type change handler
     const elasticTypeSelect = document.getElementById('elasticType');
@@ -7594,7 +7604,7 @@ function generateRelationshipFieldMapping(relationship, relIndex) {
     let mappingHTML = '';
 
     if (relationship.type === 'nested') {
-        mappingHTML = generateNestedFieldMapping(relationship, parentFields, childFields);
+        mappingHTML = generateNestedFieldMapping(relationship, parentFields, childFields, relIndex);
     } else if (relationship.type === 'join') {
         mappingHTML = generateJoinFieldMapping(relationship, parentFields, childFields);
     } else {
@@ -7602,10 +7612,21 @@ function generateRelationshipFieldMapping(relationship, relIndex) {
     }
 
     container.innerHTML = mappingHTML;
+
+    const previewCollapse = container.querySelector(`#generatedPreview_${relIndex}`);
+    if (previewCollapse) {
+        const icon = container.querySelector('.preview-toggle-icon');
+        previewCollapse.addEventListener('show.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+        previewCollapse.addEventListener('hide.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        });
+    }
 }
 
 // 🆕 Generate nested field mapping (parent + nested child)
-function generateNestedFieldMapping(relationship, parentFields, childFields) {
+function generateNestedFieldMapping(relationship, parentFields, childFields, relIndex) {
     return `
         <!-- Parent Table Fields -->
         <div class="row mb-4">
@@ -7685,14 +7706,17 @@ function generateNestedFieldMapping(relationship, parentFields, childFields) {
         <div class="row">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#generatedPreview_${relIndex}" style="cursor: pointer;">
                         <h6 class="mb-0">
                             <i class="fas fa-code me-2"></i>
                             Generated Elasticsearch Mapping Preview
                         </h6>
+                        <i class="fas fa-chevron-down preview-toggle-icon"></i>
                     </div>
-                    <div class="card-body">
-                        <pre class="small bg-light p-3 rounded"><code>${generateMappingPreview(relationship, parentFields, childFields)}</code></pre>
+                    <div id="generatedPreview_${relIndex}" class="collapse">
+                        <div class="card-body">
+                            <pre class="small bg-light p-3 rounded"><code>${generateMappingPreview(relationship, parentFields, childFields)}</code></pre>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -7765,12 +7789,23 @@ function generateRelationshipFieldMappingFixed(relationship, relIndex) {
     let mappingHTML = '';
 
     if (relationship.type === 'nested') {
-        mappingHTML = generateNestedFieldMapping(relationship, parentFields, childFields);
+        mappingHTML = generateNestedFieldMapping(relationship, parentFields, childFields, relIndex);
     } else {
         mappingHTML = generateSimpleFieldMapping(relationship, parentFields, childFields);
     }
 
     container.innerHTML = mappingHTML;
+
+    const previewCollapse = container.querySelector(`#generatedPreview_${relIndex}`);
+    if (previewCollapse) {
+        const icon = container.querySelector('.preview-toggle-icon');
+        previewCollapse.addEventListener('show.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+        previewCollapse.addEventListener('hide.bs.collapse', () => {
+            icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        });
+    }
 }
 
 async function generateWorkflowMapping(isSave = false) {
