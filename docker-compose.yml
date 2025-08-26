@@ -1,0 +1,19 @@
+
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: elastic_query_builder
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"  # FastAPI
+      - "8001:8001"  # Flask
+    command: >
+      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 & 
+             flask run --host=0.0.0.0 --port=8001 --app app.flask_app"
