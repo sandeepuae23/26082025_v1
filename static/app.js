@@ -35,6 +35,7 @@ let workflowData = {
     fieldMappings: {},
     detectionResults: null
 };
+let workflowInitialized = false;
 // Oracle-specific global variables
 let queryOracleEnvironmentId = null;
 let queryTables = [];
@@ -309,6 +310,9 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshCustomAnalyzerList();
     populateAnalyzerDropdown();
     populateSimilarityDropdown();
+    if (document.getElementById('workflowElasticEnvironment')) {
+        initializeWorkflow();
+    }
     // initializeNestedFieldDragDrop();
     // Enhanced field type change handler
     const elasticTypeSelect = document.getElementById('elasticType');
@@ -6795,9 +6799,12 @@ async function validateMappingModal() {
 
 
 function initializeWorkflow() {
+    if (!workflowInitialized) {
+        setupWorkflowEventListeners();
+        workflowInitialized = true;
+    }
     loadOracleEnvironmentsForWorkflow();
     loadElasticEnvironmentsForWorkflow();
-    setupWorkflowEventListeners();
     updateStepVisibility();
 }
 
