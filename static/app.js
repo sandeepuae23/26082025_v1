@@ -36,6 +36,7 @@ let workflowData = {
     detectionResults: null
 };
 let workflowInitialized = false;
+let workflowGeneratedMapping = null;
 // Oracle-specific global variables
 let queryOracleEnvironmentId = null;
 let queryTables = [];
@@ -45,7 +46,6 @@ let mappingTables = [];
 let selectedOracleTable = null;
 let oracleTableColumns = [];
 let selectedOracleColumns = [];
-let envId=null;
 // Field configuration with nested field support
 let currentConfigField = null;
 let enhancedFormBuilderData = {
@@ -6836,7 +6836,9 @@ function setupWorkflowEventListeners() {
     const connectBtn = document.getElementById('connectWorkflowOracle');
     const loadStructuresBtn = document.getElementById('loadSelectedStructures');
     const autoDetectionBtn = document.getElementById('runAutoDetection');
-    const generateBtn = document.getElementById('generateWorkflowMapping');
+    const generateBtn = document.getElementById('generateWorkflowMappingBtn');
+    const saveBtn = document.getElementById('saveWorkflowMappingBtn');
+    const previewBtn = document.getElementById('previewWorkflowMappingBtn');
     const mappingNameInput = document.getElementById('workflowMappingName');
     const indexNameInput = document.getElementById('workflowIndexName');
     const elasticEnvSelect = document.getElementById('workflowElasticEnvironment');
@@ -6861,17 +6863,32 @@ function setupWorkflowEventListeners() {
     }
 
     if (generateBtn) {
-        generateBtn.addEventListener('click', generateWorkflowMapping);
+        generateBtn.addEventListener('click', () => generateWorkflowMapping(false));
+    }
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => generateWorkflowMapping(true));
+    }
+    if (previewBtn) {
+        previewBtn.addEventListener('click', showWorkflowMappingPreview);
     }
 
     if (mappingNameInput) {
-        mappingNameInput.addEventListener('input', updateGenerateWorkflowButton);
+        mappingNameInput.addEventListener('input', () => {
+            workflowGeneratedMapping = null;
+            updateGenerateWorkflowButton();
+        });
     }
     if (indexNameInput) {
-        indexNameInput.addEventListener('input', updateGenerateWorkflowButton);
+        indexNameInput.addEventListener('input', () => {
+            workflowGeneratedMapping = null;
+            updateGenerateWorkflowButton();
+        });
     }
     if (elasticEnvSelect) {
-        elasticEnvSelect.addEventListener('change', updateGenerateWorkflowButton);
+        elasticEnvSelect.addEventListener('change', () => {
+            workflowGeneratedMapping = null;
+            updateGenerateWorkflowButton();
+        });
     }
 }
 
@@ -7749,10 +7766,11 @@ function generateRelationshipFieldMappingFixed(relationship, relIndex) {
     container.innerHTML = mappingHTML;
 }
 
-async function generateWorkflowMapping() {
+async function generateWorkflowMapping(isSave = false) {
     const mappingName = document.getElementById('workflowMappingName').value.trim();
     const indexName = document.getElementById('workflowIndexName').value.trim();
     const elasticEnvId = document.getElementById('workflowElasticEnvironment').value;
+    const buttonId = isSave ? 'saveWorkflowMappingBtn' : 'generateWorkflowMappingBtn';
 
     if (!mappingName || !indexName || !elasticEnvId) {
         showAlert('Please enter mapping name, index name, and select an Elasticsearch environment', 'warning');
@@ -7770,7 +7788,7 @@ async function generateWorkflowMapping() {
     }
 
     try {
-        showLoading('generateWorkflowMapping');
+        showLoading(buttonId);
 
         const mappingData = {
             mappingName: mappingName,
@@ -7780,7 +7798,7 @@ async function generateWorkflowMapping() {
             tableStructures: workflowData.tableStructures
         };
 
-        const response = await fetch(`/oracle/generate-workflow-mapping/${elasticEnvId}`, {
+        const response = await fetch(`/oracle/generate-workflow-mapping/${elasticEnvId}?dry_run=${!isSave}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -7793,9 +7811,14 @@ async function generateWorkflowMapping() {
         if (result.success) {
             displayMappingSummary(result);
             updateMappingPreview(result.mapping);
-            completeStep(6);
-            showAlert('Mapping generated successfully!', 'success');
-            showWorkflowCompletion(result);
+            workflowGeneratedMapping = result.mapping;
+            if (isSave) {
+                completeStep(6);
+                showAlert('Mapping saved successfully!', 'success');
+                showWorkflowCompletion(result);
+            } else {
+                showAlert('Mapping generated successfully!', 'success');
+            }
         } else {
             throw new Error(result.error);
         }
@@ -7803,7 +7826,8 @@ async function generateWorkflowMapping() {
     } catch (error) {
         showAlert('Error generating mapping: ' + error.message, 'danger');
     } finally {
-        hideLoading('generateWorkflowMapping');
+        hideLoading(buttonId);
+        updateGenerateWorkflowButton();
     }
 }
 
@@ -7838,10 +7862,22 @@ function displayFinalMappingSummary(result) {
 
 // 🆕 NEW FUNCTION: Update mapping preview
 function updateMappingPreview(mapping) {
-    const container = document.getElementById('workflowMappingPreview');
+    const container = document.getElementById('workflowPreviewContent');
 
     if (container && mapping) {
-        container.innerHTML = `<pre class="small">${JSON.stringify(mapping, null, 2)}</pre>`;
+        container.textContent = JSON.stringify(mapping, null, 2);
+    }
+}
+
+function showWorkflowMappingPreview() {
+    if (!workflowGeneratedMapping) {
+        showAlert('Please generate the mapping first', 'warning');
+        return;
+    }
+    const modalEl = document.getElementById('workflowPreviewModal');
+    if (modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
     }
 }
 
@@ -7918,7 +7954,7 @@ function exportMapping() {
         index: document.getElementById('workflowIndexName').value,
         tables: workflowData.selectedTables,
         relationships: workflowData.relationships,
-        mapping: JSON.parse(document.getElementById('workflowMappingPreview').textContent || '{}')
+        mapping: JSON.parse(document.getElementById('workflowPreviewContent').textContent || '{}')
     };
 
     const blob = new Blob([JSON.stringify(mappingData, null, 2)], { type: 'application/json' });
@@ -8068,12 +8104,6 @@ function displayMappingSummary(result) {
         </div>
     `;
 }
-
-function updateMappingPreview(mapping) {
-    const container = document.getElementById('workflowMappingPreview');
-    container.innerHTML = `<pre class="small">${JSON.stringify(mapping, null, 2)}</pre>`;
-}
-
 // Navigation functions
 function goToStep(stepNumber) {
     // Update current step
@@ -8417,15 +8447,30 @@ function updateGenerateWorkflowButton() {
     const mappingName = document.getElementById('workflowMappingName')?.value.trim();
     const indexName = document.getElementById('workflowIndexName')?.value.trim();
     const envId = document.getElementById('workflowElasticEnvironment')?.value;
-    const btn = document.getElementById('generateWorkflowMapping');
-    if (btn) {
-        btn.disabled = !(mappingName && indexName && envId);
+    const generateBtn = document.getElementById('generateWorkflowMappingBtn');
+    const saveBtn = document.getElementById('saveWorkflowMappingBtn');
+    const previewBtn = document.getElementById('previewWorkflowMappingBtn');
+
+    if (generateBtn) {
+        generateBtn.disabled = !(mappingName && indexName && envId);
+    }
+
+    const hasMapping = !!workflowGeneratedMapping;
+    if (saveBtn) {
+        saveBtn.disabled = !hasMapping;
+    }
+    if (previewBtn) {
+        previewBtn.disabled = !hasMapping;
+    }
+    if (!hasMapping) {
+        const container = document.getElementById('workflowPreviewContent');
+        if (container) {
+            container.textContent = 'No mapping generated.';
+        }
     }
 }
 
 function enableStep6() {
-    console.log("🚀 Enabling Step 6: Generate & Save");
-
     // Move to Step 6
     goToStep(6);
 
@@ -8433,10 +8478,9 @@ function enableStep6() {
     populateMappingSummary();
 
     // Enable the generate button based on field completion
-    const generateBtn = document.getElementById('generateWorkflowMapping');
+    const generateBtn = document.getElementById('generateWorkflowMappingBtn');
     if (generateBtn) {
         updateGenerateWorkflowButton();
-        console.log("✅ Generate button state updated");
     }
 
     // Auto-populate field names if empty
