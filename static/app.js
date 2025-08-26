@@ -419,14 +419,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Add Nested Field Modal Event Listeners
+    // Ensure the Settings & Indices Manager is ready when the page loads
+    if (window.EnhancedIndicesManager && !window.enhancedIndicesManager) {
+        window.enhancedIndicesManager = new window.EnhancedIndicesManager();
+    }
+
     const enhancedTab = document.getElementById('enhanced-indices-tab');
     if (enhancedTab) {
         enhancedTab.addEventListener('shown.bs.tab', function () {
-            // Lazy‑load the Enhanced Indices Manager when the tab is first viewed
-            if (!window.enhancedIndicesManager && window.EnhancedIndicesManager) {
-                window.enhancedIndicesManager = new window.EnhancedIndicesManager();
-            }
-
             if (window.enhancedIndicesManager) {
                 window.enhancedIndicesManager.refreshAllData();
             }
